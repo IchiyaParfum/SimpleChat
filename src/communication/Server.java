@@ -9,31 +9,42 @@ import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketAddress;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import communication.messages.Message;
+import entity.User;
 
 public abstract class Server implements Runnable, ServerConstants, Subject{
 	protected DatagramSocket socket;
 	protected boolean running = false;
 	protected byte[] buffer;
-	
+	protected Logger logger;
 	protected List<ServerObserver> observers;
 	
-    public Server() throws SocketException {
-        socket = new DatagramSocket();	//Choose any available port
-        buffer = new byte[bufferSize];
-        
+    public Server() throws SecurityException, IOException {
+        socket = new DatagramSocket(0);	//Choose any available port
+        buffer = new byte[bufferSize];              
         observers = new ArrayList<>();
+        
+        //Set up logger
+        logger = Logger.getLogger(this.getClass().getPackage().getName());
+        FileHandler fh = new FileHandler("server.log");	//Write log file in parent folder
+        fh.setFormatter(new SimpleFormatter());
+        logger.addHandler(fh);
     }
     
     public void stopServer() {
     	running = false;
     }
+    
+	public boolean isRunning() {
+		return running;
+	}
     
 	@Override
 	public void run() {
@@ -43,7 +54,7 @@ public abstract class Server implements Runnable, ServerConstants, Subject{
             try {
             	//Receive message
 				Message message = receive();
-
+				logger.info(message.toString());
 				//Inform observers
 				for(ServerObserver so : observers) {
 					so.receive(message);
@@ -54,6 +65,7 @@ public abstract class Server implements Runnable, ServerConstants, Subject{
 				continue;
 			}
         }
+        socket.close();
 		
 	}
 
@@ -66,6 +78,10 @@ public abstract class Server implements Runnable, ServerConstants, Subject{
 			ObjectInputStream iStream = new ObjectInputStream(new ByteArrayInputStream(packet.getData()));
 			Message message = (Message) iStream.readObject();
 			iStream.close();
+			//Set address from packet when receiving message
+			message.setSender(new User(message.getSender().getName(), 
+					packet.getAddress().getHostAddress(), 
+					message.getSender().getPort()));
 			return message;
 		}catch(IOException ex) {
 			ex.printStackTrace();
@@ -76,7 +92,7 @@ public abstract class Server implements Runnable, ServerConstants, Subject{
 		}		
 	}
 	
-    public void send(Message msg, int port, InetAddress address) {
+    public void send(Message msg, int port, String host) {
     	try {
 			// Serialize message to a byte array
 			ByteArrayOutputStream bStream = new ByteArrayOutputStream();
@@ -89,7 +105,7 @@ public abstract class Server implements Runnable, ServerConstants, Subject{
 			try {
 				//Send data
 		        DatagramPacket packet;
-				packet = new DatagramPacket(serializedMessage, serializedMessage.length, address, port);
+				packet = new DatagramPacket(serializedMessage, serializedMessage.length, InetAddress.getByName(host), port);
 				socket.send(packet);	
 			}catch(UnknownHostException ex) {
 				ex.printStackTrace();
@@ -126,6 +142,10 @@ public abstract class Server implements Runnable, ServerConstants, Subject{
     	}
     	
     	return list;
+    }
+    
+    public int getPort() {
+    	return socket.getLocalPort();
     }
 }
 
