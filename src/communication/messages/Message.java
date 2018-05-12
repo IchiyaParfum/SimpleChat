@@ -2,11 +2,28 @@ package communication.messages;
 
 import java.io.Serializable;
 
+import entity.User;
+
 public abstract class Message implements Serializable{
-	protected int id;
+	protected User sender;
+	
+	protected Message(User sender) {
+		setSender(sender);
+	}
+	
+	public void setSender(User sender) {
+		this.sender = sender;
+	}
+	
+	public User getSender() {
+		return sender;
+	}
 	
 	@Override
 	public String toString() {
-		return "ID: " + id;
+		if(sender == null) {
+			return "Message from: Unknown";
+		}
+		return getClass().getSimpleName() + " from: " + sender.toString();
 	}
 }

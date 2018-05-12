@@ -1,11 +1,13 @@
 package communication.messages;
 
+import entity.User;
+
 public class TextMessage extends Message{
 	private String text;
 	
-	public TextMessage() {
-		super();
-		setText(new String());
+	public TextMessage(User sender, String text) {
+		super(sender);
+		setText(text);
 	}
 
 	public String getText() {
